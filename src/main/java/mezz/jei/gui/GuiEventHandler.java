@@ -1,25 +1,32 @@
 package mezz.jei.gui;
 
+import mezz.jei.util.LimitedLogger;
+import mezz.jei.util.Log;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.minecraftforge.client.event.GuiContainerEvent;
+import net.minecraftforge.client.event.GuiOpenEvent;
+import net.minecraftforge.client.event.GuiScreenEvent;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.inventory.GuiContainer;
+
 import mezz.jei.config.Config;
 import mezz.jei.config.OverlayToggleEvent;
 import mezz.jei.gui.overlay.IngredientListOverlay;
 import mezz.jei.gui.overlay.bookmarks.LeftAreaDispatcher;
 import mezz.jei.recipes.RecipeRegistry;
 import mezz.jei.util.Translator;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.inventory.GuiContainer;
-import net.minecraftforge.client.event.GuiContainerEvent;
-import net.minecraftforge.client.event.GuiOpenEvent;
-import net.minecraftforge.client.event.GuiScreenEvent;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
+import org.apache.logging.log4j.Level;
+
+import java.time.Duration;
 
 public class GuiEventHandler {
 	private final IngredientListOverlay ingredientListOverlay;
 	private final GuiScreenHelper guiScreenHelper;
 	private final LeftAreaDispatcher leftAreaDispatcher;
 	private final RecipeRegistry recipeRegistry;
+	private final LimitedLogger missingBackgroundLogger = new LimitedLogger(Log.get(), Duration.ofHours(1));
 	private boolean drawnOnBackground = false;
 
 	public GuiEventHandler(GuiScreenHelper guiScreenHelper, LeftAreaDispatcher leftAreaDispatcher, IngredientListOverlay ingredientListOverlay, RecipeRegistry recipeRegistry) {
@@ -53,13 +60,17 @@ public class GuiEventHandler {
 	@SubscribeEvent
 	public void onDrawBackgroundEventPost(GuiScreenEvent.BackgroundDrawnEvent event) {
 		GuiScreen gui = event.getGui();
+		Minecraft minecraft = gui.mc;
+		if (minecraft == null) {
+			return;
+		}
 		boolean exclusionAreasChanged = guiScreenHelper.updateGuiExclusionAreas();
 		ingredientListOverlay.updateScreen(gui, exclusionAreasChanged);
 		leftAreaDispatcher.updateScreen(gui, exclusionAreasChanged);
 
 		drawnOnBackground = true;
-		ingredientListOverlay.drawScreen(gui.mc, event.getMouseX(), event.getMouseY(), gui.mc.getRenderPartialTicks());
-		leftAreaDispatcher.drawScreen(gui.mc, event.getMouseX(), event.getMouseY(), gui.mc.getRenderPartialTicks());
+		ingredientListOverlay.drawScreen(minecraft, event.getMouseX(), event.getMouseY(), minecraft.getRenderPartialTicks());
+		leftAreaDispatcher.drawScreen(minecraft, event.getMouseX(), event.getMouseY(), minecraft.getRenderPartialTicks());
 	}
 
 	/**
@@ -68,20 +79,32 @@ public class GuiEventHandler {
 	@SubscribeEvent
 	public void onDrawForegroundEvent(GuiContainerEvent.DrawForeground event) {
 		GuiContainer gui = event.getGuiContainer();
-		ingredientListOverlay.drawOnForeground(gui, event.getMouseX(), event.getMouseY());
+		Minecraft minecraft = gui.mc;
+		if (minecraft == null) {
+			return;
+		}
+		ingredientListOverlay.drawOnForeground(minecraft, gui, event.getMouseX(), event.getMouseY());
 		leftAreaDispatcher.drawOnForeground(gui, event.getMouseX(), event.getMouseY());
 	}
 
 	@SubscribeEvent
 	public void onDrawScreenEventPost(GuiScreenEvent.DrawScreenEvent.Post event) {
 		GuiScreen gui = event.getGui();
+		Minecraft minecraft = gui.mc;
+		if (minecraft == null) {
+			return;
+		}
 
 		ingredientListOverlay.updateScreen(gui, false);
 		leftAreaDispatcher.updateScreen(gui, false);
 
 		if (!drawnOnBackground) {
-			ingredientListOverlay.drawScreen(gui.mc, event.getMouseX(), event.getMouseY(), gui.mc.getRenderPartialTicks());
-			leftAreaDispatcher.drawScreen(gui.mc, event.getMouseX(), event.getMouseY(), gui.mc.getRenderPartialTicks());
+			if (gui instanceof GuiContainer) {
+				String guiName = gui.getClass().getName();
+				missingBackgroundLogger.log(Level.WARN, guiName, "GUI did not draw the dark background layer behind itself, this may result in display issues: {}", guiName);
+			}
+			ingredientListOverlay.drawScreen(minecraft, event.getMouseX(), event.getMouseY(), minecraft.getRenderPartialTicks());
+			leftAreaDispatcher.drawScreen(minecraft, event.getMouseX(), event.getMouseY(), minecraft.getRenderPartialTicks());
 		}
 		drawnOnBackground = false;
 
@@ -89,12 +112,12 @@ public class GuiEventHandler {
 			GuiContainer guiContainer = (GuiContainer) gui;
 			if (recipeRegistry.getRecipeClickableArea(guiContainer, event.getMouseX() - guiContainer.getGuiLeft(), event.getMouseY() - guiContainer.getGuiTop()) != null) {
 				String showRecipesText = Translator.translateToLocal("jei.tooltip.show.recipes");
-				TooltipRenderer.drawHoveringText(guiContainer.mc, showRecipesText, event.getMouseX(), event.getMouseY());
+				TooltipRenderer.drawHoveringText(minecraft, showRecipesText, event.getMouseX(), event.getMouseY());
 			}
 		}
 
-		ingredientListOverlay.drawTooltips(gui.mc, event.getMouseX(), event.getMouseY());
-		leftAreaDispatcher.drawTooltips(gui.mc, event.getMouseX(), event.getMouseY());
+		ingredientListOverlay.drawTooltips(minecraft, event.getMouseX(), event.getMouseY());
+		leftAreaDispatcher.drawTooltips(minecraft, event.getMouseX(), event.getMouseY());
 	}
 
 	@SubscribeEvent

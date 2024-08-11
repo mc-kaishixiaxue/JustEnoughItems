@@ -1,5 +1,26 @@
 package mezz.jei.ingredients;
 
+import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.EnchantmentData;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemEnchantedBook;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTBase;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.potion.PotionHelper;
+import net.minecraft.tileentity.TileEntityFurnace;
+import net.minecraft.util.NonNullList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import mezz.jei.Internal;
@@ -14,17 +35,6 @@ import mezz.jei.startup.IModIdHelper;
 import mezz.jei.util.ErrorUtil;
 import mezz.jei.util.IngredientSet;
 import mezz.jei.util.Log;
-import net.minecraft.item.ItemStack;
-import net.minecraft.potion.PotionHelper;
-import net.minecraft.tileentity.TileEntityFurnace;
-import net.minecraft.util.NonNullList;
-
-import javax.annotation.Nullable;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 public class IngredientRegistry implements IIngredientRegistry {
 	private final IModIdHelper modIdHelper;
@@ -38,11 +48,11 @@ public class IngredientRegistry implements IIngredientRegistry {
 	private final NonNullList<ItemStack> potionIngredients = NonNullList.create();
 
 	public IngredientRegistry(
-			IModIdHelper modIdHelper,
-			IngredientBlacklistInternal blacklist,
-			Map<IIngredientType, IngredientSet> ingredientsMap,
-			ImmutableMap<IIngredientType, IIngredientHelper> ingredientHelperMap,
-			ImmutableMap<IIngredientType, IIngredientRenderer> ingredientRendererMap
+		IModIdHelper modIdHelper,
+		IngredientBlacklistInternal blacklist,
+		Map<IIngredientType, IngredientSet> ingredientsMap,
+		ImmutableMap<IIngredientType, IIngredientHelper> ingredientHelperMap,
+		ImmutableMap<IIngredientType, IIngredientRenderer> ingredientRendererMap
 	) {
 		this.modIdHelper = modIdHelper;
 		this.blacklist = blacklist;
@@ -231,6 +241,14 @@ public class IngredientRegistry implements IIngredientRegistry {
 		ErrorUtil.checkNotNull(ingredientType, "ingredientType");
 		ErrorUtil.checkNotEmpty(ingredients, "ingredients");
 
+		Collection<EnchantmentData> enchantmentData = hack_getBookEnchantmentData(ingredientType, ingredients);
+		if (!enchantmentData.isEmpty()) {
+			addIngredientsAtRuntime(VanillaTypes.ENCHANT, enchantmentData, ingredientFilter);
+			if (ingredients.isEmpty()) {
+				return;
+			}
+		}
+
 		Log.get().info("Ingredients are being added at runtime: {} {}", ingredients.size(), ingredientType.getIngredientClass().getName());
 
 		IIngredientHelper<V> ingredientHelper = getIngredientHelper(ingredientType);
@@ -315,6 +333,14 @@ public class IngredientRegistry implements IIngredientRegistry {
 		ErrorUtil.checkNotNull(ingredientType, "ingredientType");
 		ErrorUtil.checkNotEmpty(ingredients, "ingredients");
 
+		Collection<EnchantmentData> enchantmentData = hack_getBookEnchantmentData(ingredientType, ingredients);
+		if (!enchantmentData.isEmpty()) {
+			removeIngredientsAtRuntime(VanillaTypes.ENCHANT, enchantmentData, ingredientFilter);
+			if (ingredients.isEmpty()) {
+				return;
+			}
+		}
+
 		Log.get().info("Ingredients are being removed at runtime: {} {}", ingredients.size(), ingredientType.getIngredientClass().getName());
 
 		@SuppressWarnings("unchecked")
@@ -359,5 +385,54 @@ public class IngredientRegistry implements IIngredientRegistry {
 			}
 		}
 		return false;
+	}
+
+	private <V> Collection<EnchantmentData> hack_getBookEnchantmentData(IIngredientType<V> ingredientType, Collection<V> ingredients) {
+		if (ingredientType == VanillaTypes.ITEM) {
+			List<EnchantmentData> enchantmentData = new ArrayList<>();
+			for (Iterator<V> iterator = ingredients.iterator(); iterator.hasNext(); ) {
+				V ingredient = iterator.next();
+				ItemStack itemStack = VanillaTypes.ITEM.getIngredientClass().cast(ingredient);
+				EnchantmentData bookEnchantmentData = getBookEnchantmentData(itemStack);
+				if (bookEnchantmentData != null) {
+					enchantmentData.add(bookEnchantmentData);
+					iterator.remove();
+				}
+			}
+			return enchantmentData;
+		}
+		return Collections.emptyList();
+	}
+
+	@Nullable
+	private EnchantmentData getBookEnchantmentData(ItemStack itemStack) {
+		Item item = itemStack.getItem();
+		if (item instanceof ItemEnchantedBook) {
+			NBTTagList enchantments = ItemEnchantedBook.getEnchantments(itemStack);
+			return getBookEnchantmentData(enchantments);
+		}
+		return null;
+	}
+
+	@Nullable
+	private EnchantmentData getBookEnchantmentData(NBTTagList enchantments) {
+		EnchantmentData bookEnchantment = null;
+		for (NBTBase nbt : enchantments) {
+			if (nbt instanceof NBTTagCompound) {
+				NBTTagCompound nbttagcompound = (NBTTagCompound) nbt;
+				int id = nbttagcompound.getShort("id");
+				int level = nbttagcompound.getShort("lvl");
+				Enchantment enchantment = Enchantment.getEnchantmentByID(id);
+				if (enchantment != null && level > 0) {
+					if (bookEnchantment == null) {
+						bookEnchantment = new EnchantmentData(enchantment, level);
+					} else {
+						// 2+ enchantments can't be translated
+						return null;
+					}
+				}
+			}
+		}
+		return bookEnchantment;
 	}
 }

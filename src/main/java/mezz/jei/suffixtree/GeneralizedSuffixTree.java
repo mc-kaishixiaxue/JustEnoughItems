@@ -15,11 +15,14 @@
  */
 package mezz.jei.suffixtree;
 
+import javax.annotation.Nullable;
+import java.util.ArrayDeque;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.Objects;
+
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-
-import javax.annotation.Nullable;
-import java.util.Objects;
 
 /**
  * A Generalized Suffix Tree, based on the Ukkonen's paper "On-line construction of suffix trees"
@@ -100,9 +103,9 @@ public class GeneralizedSuffixTree implements ISearchTree {
 	private Node searchNode(String word) {
 		/*
 		 * Verifies if exists a path from the root to a node such that the concatenation
-         * of all the labels on the path is a superstring of the given word.
-         * If such a path is found, the last node on it is returned.
-         */
+		 * of all the labels on the path is a superstring of the given word.
+		 * If such a path is found, the last node on it is returned.
+		 */
 		Node currentNode = root;
 		Edge currentEdge;
 
@@ -384,10 +387,26 @@ public class GeneralizedSuffixTree implements ISearchTree {
 		return highestIndex;
 	}
 
+	public void trimToSize() {
+		ArrayDeque<Node> nodes = new ArrayDeque<>(128);
+		nodes.add(root);
+		while (!nodes.isEmpty()) {
+			Node node = nodes.remove();
+			node.trimToSize();
+			Node suffix = node.getSuffix();
+			if (suffix != null) {
+				suffix.trimToSize();
+			}
+			for (Edge edge : node.edges()) {
+				nodes.add(edge.getDest());
+			}
+		}
+	}
+
 	/**
 	 * A private class used to return a tuples of two elements
 	 */
-	private class Pair<A, B> {
+	private static class Pair<A, B> {
 
 		private final A first;
 		private final B second;

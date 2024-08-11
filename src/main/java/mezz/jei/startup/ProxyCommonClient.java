@@ -4,28 +4,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-import mezz.jei.Internal;
-import mezz.jei.api.IModPlugin;
-import mezz.jei.config.Config;
-import mezz.jei.config.Constants;
-import mezz.jei.config.KeyBindings;
-import mezz.jei.config.ServerInfo;
-import mezz.jei.gui.overlay.IngredientListOverlay;
-import mezz.jei.network.PacketHandler;
-import mezz.jei.network.PacketHandlerClient;
-import mezz.jei.network.packets.PacketJei;
-import mezz.jei.plugins.jei.JEIInternalPlugin;
-import mezz.jei.plugins.vanilla.VanillaPlugin;
-import mezz.jei.runtime.JeiRuntime;
-import mezz.jei.util.Log;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.network.NetHandlerPlayClient;
-import net.minecraft.client.resources.IReloadableResourceManager;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.network.NetworkManager;
-import net.minecraftforge.common.ForgeVersion;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.client.FMLClientHandler;
 import net.minecraftforge.fml.client.event.ConfigChangedEvent;
 import net.minecraftforge.fml.common.discovery.ASMDataTable;
@@ -36,11 +14,43 @@ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.FMLNetworkEvent;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.client.event.TextureStitchEvent;
+import net.minecraftforge.common.ForgeVersion;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.world.WorldEvent;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.network.NetHandlerPlayClient;
+import net.minecraft.client.resources.IReloadableResourceManager;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.NetworkManager;
+
+import com.google.common.base.Preconditions;
+import mezz.jei.Internal;
+import mezz.jei.api.IModPlugin;
+import mezz.jei.config.Config;
+import mezz.jei.config.Constants;
+import mezz.jei.config.KeyBindings;
+import mezz.jei.config.ServerInfo;
+import mezz.jei.gui.overlay.IngredientListOverlay;
+import mezz.jei.gui.textures.JeiTextureMap;
+import mezz.jei.gui.textures.Textures;
+import mezz.jei.network.PacketHandler;
+import mezz.jei.network.PacketHandlerClient;
+import mezz.jei.network.packets.PacketJei;
+import mezz.jei.plugins.jei.JEIInternalPlugin;
+import mezz.jei.plugins.vanilla.VanillaPlugin;
+import mezz.jei.runtime.JeiRuntime;
+import mezz.jei.util.Log;
 
 @SuppressWarnings("unused")
 public class ProxyCommonClient extends ProxyCommon {
 	private List<IModPlugin> plugins = new ArrayList<>();
 	private final JeiStarter starter = new JeiStarter();
+	private final JeiTextureMap textureMap = new JeiTextureMap("textures");
+	@Nullable
+	private Textures textures;
 
 	private static void initVersionChecker() {
 		final NBTTagCompound compound = new NBTTagCompound();
@@ -72,6 +82,8 @@ public class ProxyCommonClient extends ProxyCommon {
 			this.plugins.remove(jeiInternalPlugin);
 			this.plugins.add(jeiInternalPlugin);
 		}
+
+		MinecraftForge.EVENT_BUS.register(this);
 	}
 
 	@Nullable
@@ -97,7 +109,9 @@ public class ProxyCommonClient extends ProxyCommon {
 	@Override
 	public void init(FMLInitializationEvent event) {
 		KeyBindings.init();
-		MinecraftForge.EVENT_BUS.register(this);
+
+		Minecraft minecraft = Minecraft.getMinecraft();
+		minecraft.renderEngine.loadTickableTexture(textureMap.getLocation(), textureMap);
 	}
 
 	@Override
@@ -113,11 +127,13 @@ public class ProxyCommonClient extends ProxyCommon {
 				} else {
 					Log.get().info("Restarting JEI.");
 				}
-				this.starter.start(this.plugins);
+				Preconditions.checkNotNull(textures);
+				this.starter.start(this.plugins, textures);
 			}
 		});
 
-		this.starter.start(plugins);
+		Preconditions.checkNotNull(textures);
+		this.starter.start(plugins, textures);
 	}
 
 	@SubscribeEvent
@@ -166,5 +182,11 @@ public class ProxyCommonClient extends ProxyCommon {
 		} catch (RuntimeException e) {
 			Log.get().error("Failed to save filter text.", e);
 		}
+	}
+
+	@SubscribeEvent
+	@SideOnly(Side.CLIENT)
+	public void handleTextureRemap(TextureStitchEvent.Pre event) {
+		textures = new Textures(textureMap);
 	}
 }

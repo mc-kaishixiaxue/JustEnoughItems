@@ -1,26 +1,26 @@
 package mezz.jei.gui.elements;
 
-import mezz.jei.api.gui.IDrawable;
-import mezz.jei.config.Constants;
-import mezz.jei.gui.TooltipRenderer;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiButton;
-import net.minecraftforge.fml.client.config.HoverChecker;
-
 import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.minecraftforge.fml.client.config.HoverChecker;
+import net.minecraft.client.Minecraft;
+
+import mezz.jei.api.gui.IDrawable;
+import mezz.jei.config.Constants;
+import mezz.jei.gui.TooltipRenderer;
+
 public abstract class GuiIconToggleButton {
 	private final IDrawable offIcon;
 	private final IDrawable onIcon;
-	private final GuiButton button;
+	private final GuiIconButton button;
 	private final HoverChecker hoverChecker;
 
 	public GuiIconToggleButton(IDrawable offIcon, IDrawable onIcon) {
 		this.offIcon = offIcon;
 		this.onIcon = onIcon;
-		this.button = new GuiButton(2, 0, 0, 0, 0, "");
+		this.button = new GuiIconButton(2, new DrawableBlank(0, 0), (mc, x, y) -> true);
 		this.hoverChecker = new HoverChecker(this.button, 0);
 	}
 
@@ -43,11 +43,7 @@ public abstract class GuiIconToggleButton {
 
 	public final boolean handleMouseClick(int mouseX, int mouseY) {
 		Minecraft minecraft = Minecraft.getMinecraft();
-		if (button.mousePressed(minecraft, mouseX, mouseY) && onMouseClicked(mouseX, mouseY)) {
-			button.playPressSound(minecraft.getSoundHandler());
-			return true;
-		}
-		return false;
+		return button.mousePressed(minecraft, mouseX, mouseY) && onMouseClicked(mouseX, mouseY);
 	}
 
 	public final void drawTooltips(Minecraft minecraft, int mouseX, int mouseY) {

@@ -1,5 +1,18 @@
 package mezz.jei.gui.recipes;
 
+import javax.annotation.Nullable;
+import java.awt.Color;
+import java.awt.Rectangle;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.item.ItemStack;
+
 import mezz.jei.Internal;
 import mezz.jei.api.gui.IDrawable;
 import mezz.jei.api.gui.IGuiFluidStackGroup;
@@ -12,7 +25,6 @@ import mezz.jei.api.recipe.IFocus;
 import mezz.jei.api.recipe.IIngredientType;
 import mezz.jei.api.recipe.IRecipeCategory;
 import mezz.jei.api.recipe.IRecipeWrapper;
-import mezz.jei.config.Constants;
 import mezz.jei.gui.Focus;
 import mezz.jei.gui.TooltipRenderer;
 import mezz.jei.gui.elements.DrawableNineSliceTexture;
@@ -24,25 +36,13 @@ import mezz.jei.ingredients.Ingredients;
 import mezz.jei.util.ErrorUtil;
 import mezz.jei.util.LegacyUtil;
 import mezz.jei.util.Log;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.item.ItemStack;
-import net.minecraftforge.fluids.FluidStack;
-
-import javax.annotation.Nullable;
-import java.awt.Color;
-import java.awt.Rectangle;
-import java.util.ArrayList;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
 
 public class RecipeLayout implements IRecipeLayoutDrawable {
 	private static final int RECIPE_BUTTON_SIZE = 13;
 	private static final int RECIPE_BORDER_PADDING = 4;
 	public static final int recipeTransferButtonIndex = 100;
 
-	private final int ingredientCycleOffset = (int) (Math.random() * 10000);
+	private final int ingredientCycleOffset = (int) ((Math.random() * 10000) % Integer.MAX_VALUE);
 	private final IRecipeCategory recipeCategory;
 	private final GuiItemStackGroup guiItemStackGroup;
 	private final GuiFluidStackGroup guiFluidStackGroup;
@@ -112,10 +112,7 @@ public class RecipeLayout implements IRecipeLayoutDrawable {
 		setPosition(posX, posY);
 
 		this.recipeWrapper = recipeWrapper;
-		this.recipeBorder = new DrawableNineSliceTexture(Constants.RECIPE_BACKGROUND, 64, 0, 64, 64, 4, 4, 4, 4);
-		IDrawable categoryBackground = recipeCategory.getBackground();
-		this.recipeBorder.setWidth(categoryBackground.getWidth() + (2 * RECIPE_BORDER_PADDING));
-		this.recipeBorder.setHeight(categoryBackground.getHeight() + (2 * RECIPE_BORDER_PADDING));
+		this.recipeBorder = Internal.getHelpers().getGuiHelper().getRecipeBackground();
 	}
 
 	@Override
@@ -152,7 +149,10 @@ public class RecipeLayout implements IRecipeLayoutDrawable {
 		GlStateManager.pushMatrix();
 		GlStateManager.translate(posX, posY, 0.0F);
 		{
-			recipeBorder.draw(minecraft, -RECIPE_BORDER_PADDING, -RECIPE_BORDER_PADDING);
+			IDrawable categoryBackground = recipeCategory.getBackground();
+			int width = categoryBackground.getWidth() + (2 * RECIPE_BORDER_PADDING);
+			int height = categoryBackground.getHeight() + (2 * RECIPE_BORDER_PADDING);
+			recipeBorder.draw(minecraft, -RECIPE_BORDER_PADDING, -RECIPE_BORDER_PADDING, width, height);
 			background.draw(minecraft);
 			recipeCategory.drawExtras(minecraft);
 			recipeWrapper.drawInfo(minecraft, background.getWidth(), background.getHeight(), recipeMouseX, recipeMouseY);
@@ -224,7 +224,7 @@ public class RecipeLayout implements IRecipeLayoutDrawable {
 		final IDrawable background = recipeCategory.getBackground();
 		final Rectangle backgroundRect = new Rectangle(posX, posY, background.getWidth(), background.getHeight());
 		return backgroundRect.contains(mouseX, mouseY) ||
-				(recipeTransferButton != null && recipeTransferButton.isMouseOver());
+			(recipeTransferButton != null && recipeTransferButton.isMouseOver());
 	}
 
 	@Override

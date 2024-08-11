@@ -4,18 +4,21 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-import mezz.jei.api.ingredients.IIngredientRenderer;
-import mezz.jei.util.ErrorUtil;
-import mezz.jei.util.Log;
-import mezz.jei.util.Translator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.EnumRarity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.TextFormatting;
+
+import mezz.jei.api.ingredients.IIngredientRenderer;
+import mezz.jei.util.ErrorUtil;
+import mezz.jei.util.Log;
+import mezz.jei.util.Translator;
+import net.minecraftforge.common.IRarity;
 
 public class ItemStackRenderer implements IIngredientRenderer<ItemStack> {
 	@Override
@@ -33,9 +36,10 @@ public class ItemStackRenderer implements IIngredientRenderer<ItemStack> {
 
 	@Override
 	public List<String> getTooltip(Minecraft minecraft, ItemStack ingredient, ITooltipFlag tooltipFlag) {
+		EntityPlayer player = minecraft.player;
 		List<String> list;
 		try {
-			list = ingredient.getTooltip(null, tooltipFlag);
+			list = ingredient.getTooltip(player, tooltipFlag);
 		} catch (RuntimeException | LinkageError e) {
 			String itemStackInfo = ErrorUtil.getItemStackInfo(ingredient);
 			Log.get().error("Failed to get tooltip: {}", itemStackInfo, e);
@@ -44,9 +48,9 @@ public class ItemStackRenderer implements IIngredientRenderer<ItemStack> {
 			return list;
 		}
 
-		EnumRarity rarity;
+		IRarity rarity;
 		try {
-			rarity = ingredient.getRarity();
+			rarity = ingredient.getItem().getForgeRarity(ingredient);
 		} catch (RuntimeException | LinkageError e) {
 			String itemStackInfo = ErrorUtil.getItemStackInfo(ingredient);
 			Log.get().error("Failed to get rarity: {}", itemStackInfo, e);
@@ -55,7 +59,7 @@ public class ItemStackRenderer implements IIngredientRenderer<ItemStack> {
 
 		for (int k = 0; k < list.size(); ++k) {
 			if (k == 0) {
-				list.set(k, rarity.color + list.get(k));
+				list.set(k, rarity.getColor() + list.get(k));
 			} else {
 				list.set(k, TextFormatting.GRAY + list.get(k));
 			}

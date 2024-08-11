@@ -1,5 +1,22 @@
 package mezz.jei.recipes;
 
+import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import net.minecraftforge.fml.common.ProgressManager;
+import net.minecraft.client.gui.inventory.GuiContainer;
+import net.minecraft.inventory.Container;
+import net.minecraft.item.ItemStack;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -33,21 +50,6 @@ import mezz.jei.ingredients.Ingredients;
 import mezz.jei.plugins.vanilla.furnace.SmeltingRecipe;
 import mezz.jei.util.ErrorUtil;
 import mezz.jei.util.Log;
-import net.minecraft.client.gui.inventory.GuiContainer;
-import net.minecraft.inventory.Container;
-import net.minecraft.item.ItemStack;
-import net.minecraftforge.fml.common.ProgressManager;
-
-import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 public class RecipeRegistry implements IRecipeRegistry {
 	private final IngredientRegistry ingredientRegistry;
@@ -61,6 +63,7 @@ public class RecipeRegistry implements IRecipeRegistry {
 	private final ImmutableMultimap<Class<? extends GuiContainer>, RecipeClickableArea> recipeClickableAreasMap;
 	private final ImmutableListMultimap<IRecipeCategory, Object> recipeCatalysts;
 	private final ImmutableMap<String, IRecipeCategory> recipeCategoriesMap;
+	private final RecipeCategoryComparator recipeCategoryComparator;
 	private final Table<String, Object, IRecipeWrapper> wrapperMaps = new Table<>(new HashMap<>(), IdentityHashMap::new); // used when removing recipes
 	private final ListMultiMap<IRecipeCategory, IRecipeWrapper> recipeWrappersForCategories = new ListMultiMap<>();
 	private final RecipeMap recipeInputMap;
@@ -81,13 +84,14 @@ public class RecipeRegistry implements IRecipeRegistry {
 		List<IRecipeRegistryPlugin> plugins
 	) {
 		this.ingredientRegistry = ingredientRegistry;
-		this.recipeCategoriesMap = buildRecipeCategoriesMap(recipeCategories);
 		this.recipeTransferHandlers = recipeTransferHandlers;
 		this.recipeHandlers = recipeHandlers.toImmutable();
 		this.unsortedRecipeHandlers = buildRecipeHandlersList(unsortedRecipeHandlers);
 		this.recipeClickableAreasMap = recipeClickableAreasMap.toImmutable();
 
-		RecipeCategoryComparator recipeCategoryComparator = new RecipeCategoryComparator(recipeCategories);
+		this.recipeCategories = ImmutableList.copyOf(recipeCategories);
+		this.recipeCategoryComparator = new RecipeCategoryComparator(recipeCategories);
+		this.recipeCategoriesMap = buildRecipeCategoriesMap(recipeCategories);
 		this.recipeInputMap = new RecipeMap(recipeCategoryComparator, ingredientRegistry);
 		this.recipeOutputMap = new RecipeMap(recipeCategoryComparator, ingredientRegistry);
 
@@ -104,7 +108,9 @@ public class RecipeRegistry implements IRecipeRegistry {
 				recipeCatalystsBuilder.putAll(recipeCategory, catalystIngredients);
 				for (Object catalystIngredient : catalystIngredients) {
 					IIngredientType ingredientType = ingredientRegistry.getIngredientType(catalystIngredient);
+					@SuppressWarnings("unchecked")
 					IIngredientHelper ingredientHelper = ingredientRegistry.getIngredientHelper(ingredientType);
+					//noinspection unchecked
 					recipeInputMap.addRecipeCategory(recipeCategory, catalystIngredient, ingredientHelper);
 					String catalystIngredientKey = getUniqueId(catalystIngredient);
 					categoriesForRecipeCatalystKeysBuilder.put(catalystIngredientKey, recipeCategoryUid);
@@ -120,8 +126,6 @@ public class RecipeRegistry implements IRecipeRegistry {
 		for (IRecipeRegistryPlugin plugin : plugins) {
 			this.plugins.add(new RecipeRegistryPluginSafeWrapper(plugin));
 		}
-
-		this.recipeCategories = ImmutableList.copyOf(recipeCategories);
 	}
 
 	private <T> String getUniqueId(T ingredient) {
@@ -269,7 +273,9 @@ public class RecipeRegistry implements IRecipeRegistry {
 
 		Ingredients ingredients = getIngredients(recipeWrapper);
 
+		//noinspection unchecked
 		recipeInputMap.addRecipe(recipeWrapper, recipeCategory, ingredients.getInputIngredients());
+		//noinspection unchecked
 		recipeOutputMap.addRecipe(recipeWrapper, recipeCategory, ingredients.getOutputIngredients());
 
 		recipeWrappersForCategories.put(recipeCategory, recipeWrapper);
@@ -380,17 +386,19 @@ public class RecipeRegistry implements IRecipeRegistry {
 	}
 
 	@Override
-	public ImmutableList<IRecipeCategory> getRecipeCategories(List<String> recipeCategoryUids) {
+	public List<IRecipeCategory> getRecipeCategories(List<String> recipeCategoryUids) {
 		ErrorUtil.checkNotNull(recipeCategoryUids, "recipeCategoryUids");
 
-		ImmutableList.Builder<IRecipeCategory> builder = ImmutableList.builder();
+		List<IRecipeCategory> categories = new ArrayList<>();
 		for (String recipeCategoryUid : recipeCategoryUids) {
 			IRecipeCategory<?> recipeCategory = recipeCategoriesMap.get(recipeCategoryUid);
 			if (recipeCategory != null && getRecipeCategories().contains(recipeCategory)) {
-				builder.add(recipeCategory);
+				categories.add(recipeCategory);
 			}
 		}
-		return builder.build();
+		Comparator<IRecipeCategory> comparator = Comparator.comparing(IRecipeCategory::getUid, recipeCategoryComparator);
+		categories.sort(comparator);
+		return Collections.unmodifiableList(categories);
 	}
 
 	@Deprecated
@@ -600,6 +608,7 @@ public class RecipeRegistry implements IRecipeRegistry {
 	@Deprecated
 	public List<ItemStack> getCraftingItems(IRecipeCategory recipeCategory, @Nullable IFocus focus) {
 		if (focus != null) {
+			//noinspection unchecked
 			focus = Focus.check(focus);
 		}
 		List<ItemStack> craftingItems = getCraftingItems(recipeCategory);

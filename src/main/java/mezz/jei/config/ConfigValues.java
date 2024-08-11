@@ -6,6 +6,8 @@ public class ConfigValues {
 	// advanced
 	public boolean debugModeEnabled = false;
 	public boolean centerSearchBarEnabled = false;
+	public boolean optimizeMemoryUsage = true;
+	public boolean addBookmarksToFront = true;
 	public GiveMode giveMode = GiveMode.MOUSE_PICKUP;
 	public String modNameFormat = Config.parseFriendlyModNameFormat(Config.defaultModNameFormatFriendly);
 	public int maxColumns = 100;
@@ -23,7 +25,7 @@ public class ConfigValues {
 	// per-world
 	public boolean overlayEnabled = true;
 	public boolean cheatItemsEnabled = false;
-	public boolean hideModeEnabled = false;
+	public boolean editModeEnabled = false;
 	public boolean bookmarkOverlayEnabled = true;
 	public String filterText = "";
 }

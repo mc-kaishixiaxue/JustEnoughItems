@@ -1,5 +1,13 @@
 package mezz.jei.startup;
 
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import mezz.jei.util.ErrorUtil;
+import net.minecraftforge.fml.common.ProgressManager;
+import net.minecraft.util.NonNullList;
+
 import com.google.common.base.Stopwatch;
 import mezz.jei.Internal;
 import mezz.jei.api.IJeiRuntime;
@@ -11,12 +19,14 @@ import mezz.jei.api.gui.IGuiScreenHandler;
 import mezz.jei.bookmarks.BookmarkList;
 import mezz.jei.config.Config;
 import mezz.jei.gui.GuiEventHandler;
+import mezz.jei.gui.GuiHelper;
 import mezz.jei.gui.GuiScreenHelper;
 import mezz.jei.gui.ingredients.IIngredientListElement;
 import mezz.jei.gui.overlay.IngredientListOverlay;
 import mezz.jei.gui.overlay.bookmarks.BookmarkOverlay;
 import mezz.jei.gui.overlay.bookmarks.LeftAreaDispatcher;
 import mezz.jei.gui.recipes.RecipesGui;
+import mezz.jei.gui.textures.Textures;
 import mezz.jei.ingredients.IngredientBlacklistInternal;
 import mezz.jei.ingredients.IngredientFilter;
 import mezz.jei.ingredients.IngredientListElementFactory;
@@ -28,19 +38,16 @@ import mezz.jei.runtime.JeiHelpers;
 import mezz.jei.runtime.JeiRuntime;
 import mezz.jei.runtime.SubtypeRegistry;
 import mezz.jei.util.Log;
-import net.minecraft.util.NonNullList;
-import net.minecraftforge.fml.common.ProgressManager;
-
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 
 public class JeiStarter {
 	private boolean started;
 
-	public void start(List<IModPlugin> plugins) {
+	public void start(List<IModPlugin> plugins, Textures textures) {
 		LoggedTimer totalTime = new LoggedTimer();
 		totalTime.start("Starting JEI");
+
+		IModIdHelper modIdHelper = ForgeModIdHelper.getInstance();
+		ErrorUtil.setModIdHelper(modIdHelper);
 
 		SubtypeRegistry subtypeRegistry = new SubtypeRegistry();
 
@@ -52,10 +59,11 @@ public class JeiStarter {
 
 		IngredientBlacklistInternal blacklist = new IngredientBlacklistInternal();
 		ModIngredientRegistration modIngredientRegistry = registerIngredients(plugins);
-		IngredientRegistry ingredientRegistry = modIngredientRegistry.createIngredientRegistry(ForgeModIdHelper.getInstance(), blacklist);
+		IngredientRegistry ingredientRegistry = modIngredientRegistry.createIngredientRegistry(modIdHelper, blacklist);
 		Internal.setIngredientRegistry(ingredientRegistry);
 
-		JeiHelpers jeiHelpers = new JeiHelpers(ingredientRegistry, blacklist, stackHelper);
+		GuiHelper guiHelper = new GuiHelper(ingredientRegistry, textures);
+		JeiHelpers jeiHelpers = new JeiHelpers(guiHelper, ingredientRegistry, blacklist, stackHelper);
 		Internal.setHelpers(jeiHelpers);
 
 		ModRegistry modRegistry = new ModRegistry(jeiHelpers, ingredientRegistry);
@@ -74,7 +82,7 @@ public class JeiStarter {
 		timer.stop();
 
 		timer.start("Building ingredient list");
-		NonNullList<IIngredientListElement> ingredientList = IngredientListElementFactory.createBaseList(ingredientRegistry, ForgeModIdHelper.getInstance());
+		NonNullList<IIngredientListElement> ingredientList = IngredientListElementFactory.createBaseList(ingredientRegistry, modIdHelper);
 		timer.stop();
 
 		timer.start("Building ingredient filter");
@@ -98,13 +106,20 @@ public class JeiStarter {
 
 		BookmarkOverlay bookmarkOverlay = new BookmarkOverlay(bookmarkList, jeiHelpers.getGuiHelper(), guiScreenHelper);
 		RecipesGui recipesGui = new RecipesGui(recipeRegistry, ingredientRegistry);
-		JeiRuntime jeiRuntime = new JeiRuntime(recipeRegistry, ingredientListOverlay, recipesGui, ingredientFilter);
+		JeiRuntime jeiRuntime = new JeiRuntime(recipeRegistry, ingredientListOverlay, bookmarkOverlay, recipesGui, ingredientFilter);
 		Internal.setRuntime(jeiRuntime);
 		timer.stop();
 
 		stackHelper.disableUidCache();
 
 		sendRuntime(plugins, jeiRuntime);
+
+		// Some mods insist on adding ingredients at runtime, so we cannot optimize memory usage earlier than that.
+		if (Config.isOptimizeMemoryUsage()) {
+			timer.start("Optimizing memory usage");
+			ingredientFilter.trimToSize();
+			timer.stop();
+		}
 
 		LeftAreaDispatcher leftAreaDispatcher = new LeftAreaDispatcher(guiScreenHelper);
 		leftAreaDispatcher.addContent(bookmarkOverlay);

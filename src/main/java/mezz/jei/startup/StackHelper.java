@@ -2,6 +2,7 @@ package mezz.jei.startup;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -13,11 +14,7 @@ import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import mezz.jei.api.ISubtypeRegistry;
-import mezz.jei.api.gui.IGuiIngredient;
-import mezz.jei.api.recipe.IStackHelper;
-import mezz.jei.util.ErrorUtil;
-import mezz.jei.util.Log;
+import net.minecraftforge.oredict.OreDictionary;
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -25,7 +22,12 @@ import net.minecraft.item.crafting.Ingredient;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.oredict.OreDictionary;
+
+import mezz.jei.api.ISubtypeRegistry;
+import mezz.jei.api.gui.IGuiIngredient;
+import mezz.jei.api.recipe.IStackHelper;
+import mezz.jei.util.ErrorUtil;
+import mezz.jei.util.Log;
 
 public class StackHelper implements IStackHelper {
 	private final ISubtypeRegistry subtypeRegistry;
@@ -48,7 +50,7 @@ public class StackHelper implements IStackHelper {
 
 	public void disableUidCache() {
 		for (UidMode mode : UidMode.values()) {
-			uidCache.get(mode).clear();
+			uidCache.put(mode, new IdentityHashMap<>());
 		}
 		uidCacheEnabled = false;
 	}
@@ -203,6 +205,21 @@ public class StackHelper implements IStackHelper {
 		return keyLhs.equals(keyRhs);
 	}
 
+	public List<ItemStack> getMatchingStacks(Ingredient ingredient) {
+		if (ingredient == Ingredient.EMPTY) {
+			return Collections.emptyList();
+		}
+		ItemStack[] matchingStacks = ingredient.getMatchingStacks();
+		//noinspection ConstantConditions
+		if (matchingStacks == null) {
+			return Collections.emptyList();
+		}
+		if (matchingStacks.length > 0) {
+			return Arrays.asList(matchingStacks);
+		}
+		return getAllSubtypes(Arrays.asList(ingredient.matchingStacks));
+	}
+
 	@Override
 	public List<ItemStack> getSubtypes(@Nullable ItemStack itemStack) {
 		if (itemStack == null || itemStack.isEmpty()) {
@@ -223,7 +240,9 @@ public class StackHelper implements IStackHelper {
 		final int stackSize = itemStack.getCount();
 		for (CreativeTabs itemTab : item.getCreativeTabs()) {
 			if (itemTab == null) {
-				subtypeList.add(itemStack);
+				ItemStack copy = itemStack.copy();
+				copy.setItemDamage(0);
+				subtypeList.add(copy);
 			} else {
 				addSubtypesFromCreativeTabToList(subtypeList, item, stackSize, itemTab);
 			}
@@ -354,7 +373,7 @@ public class StackHelper implements IStackHelper {
 				toItemStackList(itemStackListBuilder, stack, expandSubtypes);
 			}
 		} else if (input instanceof Ingredient) {
-			ItemStack[] stacks = ((Ingredient) input).getMatchingStacks();
+			List<ItemStack> stacks = getMatchingStacks((Ingredient) input);
 			for (ItemStack stack : stacks) {
 				toItemStackList(itemStackListBuilder, stack, expandSubtypes);
 			}

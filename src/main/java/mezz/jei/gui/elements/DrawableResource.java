@@ -1,9 +1,10 @@
 package mezz.jei.gui.elements;
 
-import mezz.jei.api.gui.IDrawableStatic;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.util.ResourceLocation;
+
+import mezz.jei.api.gui.IDrawableStatic;
 
 public class DrawableResource implements IDrawableStatic {
 
@@ -19,10 +20,6 @@ public class DrawableResource implements IDrawableStatic {
 	private final int paddingBottom;
 	private final int paddingLeft;
 	private final int paddingRight;
-
-	public DrawableResource(ResourceLocation resourceLocation, int u, int v, int width, int height) {
-		this(resourceLocation, u, v, width, height, 0, 0, 0, 0, 256, 256);
-	}
 
 	public DrawableResource(ResourceLocation resourceLocation, int u, int v, int width, int height, int paddingTop, int paddingBottom, int paddingLeft, int paddingRight, int textureWidth, int textureHeight) {
 		this.resourceLocation = resourceLocation;

@@ -1,5 +1,25 @@
 package mezz.jei.config;
 
+import javax.annotation.Nullable;
+import java.awt.Color;
+import java.io.File;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
+import net.minecraftforge.fml.client.FMLClientHandler;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.config.ConfigCategory;
+import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.common.config.Property;
+import net.minecraft.network.NetworkManager;
+import net.minecraft.util.text.TextFormatting;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import mezz.jei.Internal;
@@ -18,24 +38,6 @@ import mezz.jei.startup.IModIdHelper;
 import mezz.jei.util.GiveMode;
 import mezz.jei.util.Log;
 import mezz.jei.util.Translator;
-import net.minecraft.network.NetworkManager;
-import net.minecraft.util.text.TextFormatting;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.common.config.ConfigCategory;
-import net.minecraftforge.common.config.Configuration;
-import net.minecraftforge.common.config.Property;
-import net.minecraftforge.fml.client.FMLClientHandler;
-import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
-
-import javax.annotation.Nullable;
-import java.awt.Color;
-import java.io.File;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 
 public final class Config {
 	private static final String configKeyPrefix = "config.jei";
@@ -146,24 +148,24 @@ public final class Config {
 		}
 	}
 
-	public static boolean isHideModeEnabled() {
-		return values.hideModeEnabled;
+	public static boolean isEditModeEnabled() {
+		return values.editModeEnabled;
 	}
 
-	public static void toggleHideModeEnabled() {
-		values.hideModeEnabled = !values.hideModeEnabled;
+	public static void toggleEditModeEnabled() {
+		values.editModeEnabled = !values.editModeEnabled;
 		if (worldConfig != null) {
 			NetworkManager networkManager = FMLClientHandler.instance().getClientToServerNetworkManager();
 			final String worldCategory = ServerInfo.getWorldUid(networkManager);
-			Property property = worldConfig.get(worldCategory, "editEnabled", defaultValues.hideModeEnabled);
-			property.set(values.hideModeEnabled);
+			Property property = worldConfig.get(worldCategory, "editEnabled", defaultValues.editModeEnabled);
+			property.set(values.editModeEnabled);
 
 			if (worldConfig.hasChanged()) {
 				worldConfig.save();
 			}
 		}
 
-		MinecraftForge.EVENT_BUS.post(new EditModeToggleEvent(values.hideModeEnabled));
+		MinecraftForge.EVENT_BUS.post(new EditModeToggleEvent(values.editModeEnabled));
 	}
 
 	public static boolean isDebugModeEnabled() {
@@ -176,6 +178,14 @@ public final class Config {
 
 	public static boolean isCenterSearchBarEnabled() {
 		return values.centerSearchBarEnabled;
+	}
+
+	public static boolean isOptimizeMemoryUsage() {
+		return values.optimizeMemoryUsage;
+	}
+
+	public static boolean isAddingBookmarksToFront() {
+		return values.addBookmarksToFront;
 	}
 
 	public static GiveMode getGiveMode() {
@@ -298,11 +308,25 @@ public final class Config {
 			}
 		}
 
+		File minecraftDir = new File(Loader.instance().getConfigDir().getParent());
+		bookmarkFile = new File(minecraftDir, "jei_bookmarks.ini");
+		File oldBookmarkFile = new File(jeiConfigurationDir, "bookmarks.ini");
+		if (!bookmarkFile.exists() && oldBookmarkFile.exists()) {
+			try {
+				if (!oldBookmarkFile.renameTo(bookmarkFile)) {
+					Log.get().error("Could not move the old bookmark file from {} to {}", jeiConfigurationDir, "./");
+					return;
+				}
+			} catch (SecurityException e) {
+				Log.get().error("Could not move the old bookmark file from {} to {}", jeiConfigurationDir, "./", e);
+				return;
+			}
+		}
+
 		final File configFile = new File(jeiConfigurationDir, "jei.cfg");
 		final File itemBlacklistConfigFile = new File(jeiConfigurationDir, "itemBlacklist.cfg");
 		final File searchColorsConfigFile = new File(jeiConfigurationDir, "searchColors.cfg");
 		final File worldConfigFile = new File(jeiConfigurationDir, "worldSettings.cfg");
-		bookmarkFile = new File(jeiConfigurationDir, "bookmarks.ini");
 		worldConfig = new Configuration(worldConfigFile, "0.1.0");
 		config = new LocalizedConfiguration(configKeyPrefix, configFile, "0.4.0");
 		itemBlacklistConfig = new LocalizedConfiguration(configKeyPrefix, itemBlacklistConfigFile, "0.1.0");
@@ -398,6 +422,10 @@ public final class Config {
 
 		values.centerSearchBarEnabled = config.getBoolean(CATEGORY_ADVANCED, "centerSearchBarEnabled", defaultValues.centerSearchBarEnabled);
 
+		values.optimizeMemoryUsage = config.getBoolean(CATEGORY_ADVANCED, "optimizeMemoryUsage", defaultValues.optimizeMemoryUsage);
+
+		values.addBookmarksToFront = config.getBoolean(CATEGORY_ADVANCED, "addBookmarksToFront", defaultValues.addBookmarksToFront);
+
 		values.giveMode = config.getEnum("giveMode", CATEGORY_ADVANCED, defaultValues.giveMode, GiveMode.values());
 
 		values.maxColumns = config.getInt("maxColumns", CATEGORY_ADVANCED, defaultValues.maxColumns, smallestNumColumns, largestNumColumns);
@@ -487,12 +515,12 @@ public final class Config {
 		property.setComment(Translator.translateToLocal("config.jei.mode.cheatItemsEnabled.comment"));
 		values.cheatItemsEnabled = property.getBoolean();
 
-		property = worldConfig.get(worldCategory, "editEnabled", defaultValues.hideModeEnabled);
+		property = worldConfig.get(worldCategory, "editEnabled", defaultValues.editModeEnabled);
 		property.setLanguageKey("config.jei.mode.editEnabled");
 		property.setComment(Translator.translateToLocal("config.jei.mode.editEnabled.comment"));
-		values.hideModeEnabled = property.getBoolean();
+		values.editModeEnabled = property.getBoolean();
 		if (property.hasChanged()) {
-			MinecraftForge.EVENT_BUS.post(new EditModeToggleEvent(values.hideModeEnabled));
+			MinecraftForge.EVENT_BUS.post(new EditModeToggleEvent(values.editModeEnabled));
 		}
 
 		property = worldConfig.get(worldCategory, "bookmarkOverlayEnabled", defaultValues.bookmarkOverlayEnabled);
@@ -705,8 +733,8 @@ public final class Config {
 	 * @param str1 a string of ordinal numbers separated by decimal points.
 	 * @param str2 a string of ordinal numbers separated by decimal points.
 	 * @return The result is a negative integer if str1 is _numerically_ less than str2.
-	 *         The result is a positive integer if str1 is _numerically_ greater than str2.
-	 *         The result is zero if the strings are _numerically_ equal.
+	 * The result is a positive integer if str1 is _numerically_ greater than str2.
+	 * The result is zero if the strings are _numerically_ equal.
 	 */
 	private static int versionCompare(String str1, String str2) {
 		String[] vals1 = str1.split("\\.");

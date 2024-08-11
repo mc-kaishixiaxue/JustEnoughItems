@@ -1,5 +1,7 @@
 package mezz.jei.gui;
 
+import net.minecraft.util.ResourceLocation;
+
 import mezz.jei.api.IGuiHelper;
 import mezz.jei.api.gui.ICraftingGridHelper;
 import mezz.jei.api.gui.IDrawable;
@@ -9,13 +11,15 @@ import mezz.jei.api.gui.IDrawableStatic;
 import mezz.jei.api.gui.ITickTimer;
 import mezz.jei.api.ingredients.IIngredientRegistry;
 import mezz.jei.api.ingredients.IIngredientRenderer;
-import mezz.jei.config.Constants;
 import mezz.jei.gui.elements.DrawableAnimated;
 import mezz.jei.gui.elements.DrawableBlank;
 import mezz.jei.gui.elements.DrawableBuilder;
 import mezz.jei.gui.elements.DrawableIngredient;
+import mezz.jei.gui.elements.DrawableNineSliceTexture;
+import mezz.jei.gui.elements.DrawableSprite;
+import mezz.jei.gui.textures.TextureInfo;
+import mezz.jei.gui.textures.Textures;
 import mezz.jei.util.ErrorUtil;
-import net.minecraft.util.ResourceLocation;
 
 public class GuiHelper implements IGuiHelper {
 	private final IIngredientRegistry ingredientRegistry;
@@ -30,29 +34,45 @@ public class GuiHelper implements IGuiHelper {
 	private final IDrawableStatic configButtonCheatIcon;
 	private final IDrawableStatic bookmarkButtonDisabledIcon;
 	private final IDrawableStatic bookmarkButtonEnabledIcon;
+	private final DrawableNineSliceTexture buttonDisabled;
+	private final DrawableNineSliceTexture buttonEnabled;
+	private final DrawableNineSliceTexture buttonHighlight;
+	private final DrawableNineSliceTexture guiBackground;
+	private final DrawableNineSliceTexture recipeBackground;
+	private final DrawableNineSliceTexture searchBackground;
+	private final DrawableNineSliceTexture catalystTab;
+	private final DrawableNineSliceTexture nineSliceSlot;
+	private final IDrawableStatic infoIcon;
+	private final IDrawableStatic flameIcon;
 
-	public GuiHelper(IIngredientRegistry ingredientRegistry) {
+	public GuiHelper(IIngredientRegistry ingredientRegistry, Textures textures) {
 		this.ingredientRegistry = ingredientRegistry;
-		slotDrawable = createDrawable(Constants.RECIPE_BACKGROUND, 196, 93, 18, 18);
+		this.slotDrawable = createDrawable(textures.slot);
+		this.nineSliceSlot = createNineSliceDrawable(textures.slot);
 
-		tabSelected = createDrawable(Constants.RECIPE_BACKGROUND, 196, 15, 24, 24);
-		tabUnselected = createDrawable(Constants.RECIPE_BACKGROUND, 220, 15, 24, 22);
+		this.tabSelected = createDrawable(textures.tabSelected);
+		this.tabUnselected = createDrawable(textures.tabUnselected);
 
-		shapelessIcon = createDrawable(Constants.RECIPE_BACKGROUND, 196, 128, 16, 15);
+		this.buttonDisabled = createNineSliceDrawable(textures.buttonDisabled);
+		this.buttonEnabled = createNineSliceDrawable(textures.buttonEnabled);
+		this.buttonHighlight = createNineSliceDrawable(textures.buttonHighlight);
+		this.guiBackground = createNineSliceDrawable(textures.guiBackground);
+		this.recipeBackground = createNineSliceDrawable(textures.recipeBackground);
+		this.searchBackground = createNineSliceDrawable(textures.searchBackground);
+		this.catalystTab = createNineSliceDrawable(textures.catalystTab);
 
-		arrowPrevious = drawableBuilder(Constants.RECIPE_BACKGROUND, 196, 55, 5, 8)
-			.addPadding(1, 0, 0, 0)
-			.build();
-		arrowNext = drawableBuilder(Constants.RECIPE_BACKGROUND, 204, 55, 5, 8)
-			.addPadding(1, 0, 1, 0)
-			.build();
-		recipeTransfer = drawableBuilder(Constants.RECIPE_BACKGROUND, 212, 55, 6, 6)
-			.addPadding(1, 0, 1, 0)
-			.build();
-		configButtonIcon = createDrawable(Constants.RECIPE_BACKGROUND, 0, 166, 16, 16);
-		configButtonCheatIcon = createDrawable(Constants.RECIPE_BACKGROUND, 16, 166, 16, 16);
-		bookmarkButtonDisabledIcon = createDrawable(Constants.RECIPE_BACKGROUND, 32, 166, 16, 16);
-		bookmarkButtonEnabledIcon = createDrawable(Constants.RECIPE_BACKGROUND, 48, 166, 16, 16);
+		this.shapelessIcon = createDrawable(textures.shapelessIcon);
+		this.arrowPrevious = createDrawable(textures.arrowPrevious);
+		this.arrowNext = createDrawable(textures.arrowNext);
+		this.recipeTransfer = createDrawable(textures.recipeTransfer);
+
+		this.configButtonIcon = createDrawable(textures.configButtonIcon);
+		this.configButtonCheatIcon = createDrawable(textures.configButtonCheatIcon);
+		this.bookmarkButtonDisabledIcon = createDrawable(textures.bookmarkButtonDisabledIcon);
+		this.bookmarkButtonEnabledIcon = createDrawable(textures.bookmarkButtonEnabledIcon);
+
+		this.infoIcon = createDrawable(textures.infoIcon);
+		this.flameIcon = createDrawable(textures.flameIcon);
 	}
 
 	@Override
@@ -93,6 +113,14 @@ public class GuiHelper implements IGuiHelper {
 		return new TickTimer(ticksPerCycle, maxValue, countDown);
 	}
 
+	private IDrawableStatic createDrawable(TextureInfo textureInfo) {
+		return new DrawableSprite(textureInfo);
+	}
+
+	private DrawableNineSliceTexture createNineSliceDrawable(TextureInfo textureInfo) {
+		return new DrawableNineSliceTexture(textureInfo);
+	}
+
 	public IDrawableStatic getTabSelected() {
 		return tabSelected;
 	}
@@ -131,5 +159,55 @@ public class GuiHelper implements IGuiHelper {
 
 	public IDrawableStatic getBookmarkButtonEnabledIcon() {
 		return bookmarkButtonEnabledIcon;
+	}
+
+	public DrawableNineSliceTexture getButtonDisabled() {
+		return buttonDisabled;
+	}
+
+	public DrawableNineSliceTexture getButtonEnabled() {
+		return buttonEnabled;
+	}
+
+	public DrawableNineSliceTexture getButtonHighlight() {
+		return buttonHighlight;
+	}
+
+	public DrawableNineSliceTexture getButtonForState(int state) {
+		if (state == 0) {
+			return getButtonDisabled();
+		} else if (state == 2) {
+			return getButtonHighlight();
+		} else {
+			return getButtonEnabled();
+		}
+	}
+
+	public DrawableNineSliceTexture getGuiBackground() {
+		return guiBackground;
+	}
+
+	public DrawableNineSliceTexture getRecipeBackground() {
+		return recipeBackground;
+	}
+
+	public DrawableNineSliceTexture getSearchBackground() {
+		return searchBackground;
+	}
+
+	public IDrawableStatic getInfoIcon() {
+		return infoIcon;
+	}
+
+	public DrawableNineSliceTexture getCatalystTab() {
+		return catalystTab;
+	}
+
+	public DrawableNineSliceTexture getNineSliceSlot() {
+		return nineSliceSlot;
+	}
+
+	public IDrawableStatic getFlameIcon() {
+		return flameIcon;
 	}
 }

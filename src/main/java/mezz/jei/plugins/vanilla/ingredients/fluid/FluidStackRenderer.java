@@ -4,9 +4,8 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-import mezz.jei.api.gui.IDrawable;
-import mezz.jei.api.ingredients.IIngredientRenderer;
-import mezz.jei.util.Translator;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
@@ -17,8 +16,10 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.TextFormatting;
-import net.minecraftforge.fluids.Fluid;
-import net.minecraftforge.fluids.FluidStack;
+
+import mezz.jei.api.gui.IDrawable;
+import mezz.jei.api.ingredients.IIngredientRenderer;
+import mezz.jei.util.Translator;
 
 public class FluidStackRenderer implements IIngredientRenderer<FluidStack> {
 	private static final int TEX_WIDTH = 16;
@@ -147,10 +148,10 @@ public class FluidStackRenderer implements IIngredientRenderer<FluidStack> {
 	}
 
 	private static void drawTextureWithMasking(double xCoord, double yCoord, TextureAtlasSprite textureSprite, int maskTop, int maskRight, double zLevel) {
-		double uMin = (double) textureSprite.getMinU();
-		double uMax = (double) textureSprite.getMaxU();
-		double vMin = (double) textureSprite.getMinV();
-		double vMax = (double) textureSprite.getMaxV();
+		double uMin = textureSprite.getMinU();
+		double uMax = textureSprite.getMaxU();
+		double vMin = textureSprite.getMinV();
+		double vMax = textureSprite.getMaxV();
 		uMax = uMax - (maskRight / 16.0 * (uMax - uMin));
 		vMax = vMax - (maskTop / 16.0 * (vMax - vMin));
 
